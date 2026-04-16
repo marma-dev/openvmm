@@ -614,6 +614,7 @@ pub(crate) struct LoadedVm {
     state_units: StateUnits,
     inner: LoadedVmInner,
     running: bool,
+    boot_start_instant: Option<std::time::Instant>,
 }
 
 /// Most of the VM state for [`LoadedVm`], excluding things that are necessary
@@ -997,6 +998,8 @@ impl InitializedVm {
         saved_state: Option<SavedState>,
         client_notify_send: mesh::Sender<HaltReason>,
     ) -> Result<LoadedVm, anyhow::Error> {
+        let boot_start_instant = std::time::Instant::now();
+
         use vmotherboard::options::dev;
 
         let Self {
@@ -2256,6 +2259,7 @@ impl InitializedVm {
         let mut this = LoadedVm {
             state_units,
             running: false,
+            boot_start_instant: Some(boot_start_instant),
             inner: LoadedVmInner {
                 driver_source,
                 resolver,
@@ -2585,6 +2589,14 @@ impl LoadedVm {
     async fn resume(&mut self) -> bool {
         if self.running {
             return false;
+        }
+        if let Some(boot_start) = self.boot_start_instant.take() {
+            let boot_time = boot_start.elapsed();
+            tracing::info!(
+                boot_time_ms = boot_time.as_millis() as u64,
+                boot_time = %format!("{:.1?}", boot_time),
+                "starting VM"
+            );
         }
         self.state_units.start().await;
         self.running = true;
