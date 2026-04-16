@@ -2595,7 +2595,7 @@ impl LoadedVm {
         if let Some(boot_start) = self.boot_start_instant.take() {
             let boot_time = boot_start.elapsed();
             tracing::info!(
-                boot_time_ms = (boot_time.as_secs_f64() * 1000.0) as i64,
+                boot_time_ms = (boot_time.as_secs_f64() * 1000.0) as u64,
                 boot_time = %format!("{:.1?}", boot_time),
                 "starting VM"
             );
