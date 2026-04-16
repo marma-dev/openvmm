@@ -617,6 +617,8 @@ pub(crate) struct LoadedVm {
     running: bool,
     boot_start_instant: Option<std::time::Instant>,
 }
+
+/// Most of the VM state for [`LoadedVm`], excluding things that are necessary
 /// for state machine transitions.
 struct LoadedVmInner {
     driver_source: VmTaskDriverSource,
