@@ -1,0 +1,68 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+#
+# Standalone pipeline to produce the shared IPMI KCS BMC C-ABI staticlib
+# (ipmi_kcs_ffi.lib) and its header (ipmi_kcs.h) as a downloadable artifact, for
+# consumption by the OS Repo Legacy HCL build.
+#
+# This is a fork-local validation vehicle. The eventual upstream
+# (microsoft/openvmm) packaging would be a flowey node wired into the checkin
+# pipeline (modeled on `build_and_test_vmgs_lib`); this hand-written workflow
+# keeps the loop short while that lands.
+
+name: ipmi_kcs_ffi package
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "vm/devices/ipmi_kcs_core/**"
+      - "vm/devices/ipmi_kcs_ffi/**"
+      - ".github/workflows/ipmi-kcs-ffi.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build ipmi_kcs_ffi (x86_64-pc-windows-msvc)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (>= MSRV)
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+
+      - name: Build staticlib (release)
+        run: cargo build --release -p ipmi_kcs_ffi
+
+      - name: Stage package
+        shell: pwsh
+        run: |
+          $out = "ipmi_kcs_ffi-pkg"
+          New-Item -ItemType Directory -Force -Path "$out/lib", "$out/include" | Out-Null
+          Copy-Item target/release/ipmi_kcs_ffi.lib "$out/lib/"
+          Copy-Item vm/devices/ipmi_kcs_ffi/ipmi_kcs.h "$out/include/"
+          # Provenance so the OS Repo can record exactly what it consumed.
+          @{
+            crate = "ipmi_kcs_ffi"
+            commit = "${{ github.sha }}"
+            ref = "${{ github.ref }}"
+            built = (Get-Date -AsUTC).ToString("o")
+            rustc = (& rustc --version)
+            target = "x86_64-pc-windows-msvc"
+            profile = "release"
+          } | ConvertTo-Json | Set-Content "$out/provenance.json"
+          Get-ChildItem -Recurse $out | Select-Object FullName, Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipmi_kcs_ffi-x86_64-pc-windows-msvc
+          path: ipmi_kcs_ffi-pkg/
+          if-no-files-found: error
