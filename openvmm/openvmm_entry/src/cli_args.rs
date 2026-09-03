@@ -1093,6 +1093,14 @@ flags:
     #[clap(long)]
     pub imc: Option<PathBuf>,
 
+    /// boot the guest over vmbfs from a host directory of OS/boot files (e.g. a
+    /// WCOW image layer's `UtilityVM\Files`). Offers the vmbfs BOOT instance
+    /// serving this directory read-only and sets the firmware to boot from it,
+    /// the OpenVMM equivalent of HCS `Uefi.BootThis = { DeviceType: VmbFs }`.
+    /// Requires `--uefi`.
+    #[clap(long, requires("uefi"))]
+    pub vmbfs_boot: Option<PathBuf>,
+
     /// expose a battery device
     #[clap(long)]
     pub battery: bool,

@@ -1313,8 +1313,7 @@ async fn vm_config_from_command_line(
                 UefiConsoleModeCli::None => UefiConsoleMode::None,
             }),
             default_boot_always_attempt: opt.default_boot_always_attempt,
-            // Wired to the `--vmbfs-boot` CLI option in a follow-up change.
-            is_vmbfs_boot: false,
+            is_vmbfs_boot: opt.vmbfs_boot.is_some(),
             bios_guid,
             enable_vmbus: !opt.no_vmbus,
             force_dma_bounce: opt.uefi_force_dma_bounce,
@@ -1665,6 +1664,16 @@ async fn vm_config_from_command_line(
         vmbus_devices.push((
             DeviceVtl::Vtl0,
             vmbfs_resources::VmbfsImcDeviceHandle { file: file.into() }.into_resource(),
+        ));
+    }
+
+    if let Some(files_dir) = &opt.vmbfs_boot {
+        vmbus_devices.push((
+            DeviceVtl::Vtl0,
+            vmbfs_resources::VmbfsBootDeviceHandle {
+                files_dir: files_dir.to_string_lossy().into_owned(),
+            }
+            .into_resource(),
         ));
     }
 
