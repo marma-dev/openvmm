@@ -5910,6 +5910,7 @@ dependencies = [
  "vmotherboard",
  "vmswitch",
  "vnc_worker_defs",
+ "vsmb_resources",
  "vtl2_settings_proto",
  "whp",
  "win_etw_tracing",
@@ -6073,6 +6074,7 @@ dependencies = [
  "vmcore",
  "vmgs_broker",
  "vnc_worker",
+ "vsmb",
 ]
 
 [[package]]
@@ -10969,6 +10971,39 @@ dependencies = [
  "vmotherboard",
  "vpci",
  "vpci_client",
+]
+
+[[package]]
+name = "vsmb"
+version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "guestmem",
+ "guid",
+ "inspect",
+ "mesh",
+ "pal_async",
+ "task_control",
+ "thiserror 2.0.16",
+ "tracelimit",
+ "tracing",
+ "vm_resource",
+ "vmbus_async",
+ "vmbus_channel",
+ "vmbus_core",
+ "vmcore",
+ "vsmb_resources",
+ "windows 0.62.0",
+ "zerocopy",
+]
+
+[[package]]
+name = "vsmb_resources"
+version = "0.0.0"
+dependencies = [
+ "mesh",
+ "vm_resource",
 ]
 
 [[package]]

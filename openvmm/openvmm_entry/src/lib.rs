@@ -1677,6 +1677,22 @@ async fn vm_config_from_command_line(
         ));
     }
 
+    if !opt.vsmb.is_empty() {
+        let shares = opt
+            .vsmb
+            .iter()
+            .map(|share| vsmb_resources::VsmbShare {
+                name: share.name.clone(),
+                path: share.path.clone(),
+                read_only: share.read_only,
+            })
+            .collect();
+        vmbus_devices.push((
+            DeviceVtl::Vtl0,
+            vsmb_resources::VsmbDeviceHandle { shares }.into_resource(),
+        ));
+    }
+
     let mut virtio_devices = Vec::new();
     let mut add_virtio_device = |bus, resource: Resource<VirtioDeviceHandle>| {
         let bus = match bus {

@@ -1101,6 +1101,15 @@ flags:
     #[clap(long, requires("uefi"))]
     pub vmbfs_boot: Option<PathBuf>,
 
+    /// add a vSMB (SMB-over-VMBus) share (e.g. layers,C:\layers or
+    /// data,C:\data,rw)
+    ///
+    /// Shares are read-only by default; append `,rw` for a read-write host
+    /// mount. This is an early prototype: the device currently performs vSMB
+    /// transport bring-up and protocol version negotiation only.
+    #[clap(long, value_name = "name,path[,rw|,ro]")]
+    pub vsmb: Vec<VsmbArgs>,
+
     /// expose a battery device
     #[clap(long)]
     pub battery: bool,
@@ -1460,6 +1469,44 @@ impl FromStr for FsArgsWithOptions {
             path: path.to_owned(),
             options,
             pcie_port,
+        })
+    }
+}
+
+/// A vSMB share specification, parsed from `<name>,<path>[,rw]`.
+///
+/// Shares are read-only by default (the image-layer use case); append `,rw`
+/// for a read-write host mount.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VsmbArgs {
+    /// The share name, as it appears in the guest UNC path.
+    pub name: String,
+    /// The host directory backing the share.
+    pub path: String,
+    /// Whether the share is read-only.
+    pub read_only: bool,
+}
+
+impl FromStr for VsmbArgs {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut s = s.split(',');
+        let (Some(name), Some(path)) = (s.next(), s.next()) else {
+            anyhow::bail!("expected <name>,<path>[,rw|,ro]");
+        };
+        let read_only = match s.next() {
+            None | Some("ro") => true,
+            Some("rw") => false,
+            Some(other) => anyhow::bail!("invalid vsmb mode '{other}', expected 'ro' or 'rw'"),
+        };
+        if s.next().is_some() {
+            anyhow::bail!("expected <name>,<path>[,rw|,ro]");
+        }
+        Ok(Self {
+            name: name.to_owned(),
+            path: path.to_owned(),
+            read_only,
         })
     }
 }
