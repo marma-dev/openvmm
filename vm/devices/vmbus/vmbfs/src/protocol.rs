@@ -14,7 +14,7 @@ use zerocopy::little_endian::U64 as u64_le;
 
 pub const INTERFACE_TYPE: Guid = guid::guid!("c376c1c3-d276-48d2-90a9-c04748072c60");
 pub const IMC_INSTANCE: Guid = guid::guid!("c4e5e7d1-d748-4afc-979d-683167910a55");
-pub const _BOOT_INSTANCE: Guid = guid::guid!("c63c9bdf-5fa5-4208-b03f-6b458b365592");
+pub const BOOT_INSTANCE: Guid = guid::guid!("c63c9bdf-5fa5-4208-b03f-6b458b365592");
 
 pub const MAX_MESSAGE_SIZE: usize = 12288;
 pub const MAX_READ_SIZE: usize =

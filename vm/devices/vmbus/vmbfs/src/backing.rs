@@ -23,6 +23,7 @@ pub struct FileInfo {
 }
 
 /// An error that can occur when interacting with the file system.
+#[derive(Debug)]
 pub enum FileError {
     /// The file was not found.
     NotFound,

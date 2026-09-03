@@ -16,11 +16,13 @@
 #![forbid(unsafe_code)]
 
 pub mod backing;
+mod dir_backing;
 mod protocol;
 pub mod resolver;
 pub mod single_file_backing;
 
 use async_trait::async_trait;
+use guid::Guid;
 use inspect::Inspect;
 use inspect::InspectMut;
 use std::io::IoSlice;
@@ -38,14 +40,21 @@ use zerocopy::IntoBytes;
 /// A vmbfs device.
 #[derive(InspectMut)]
 pub struct VmbfsDevice {
+    #[inspect(skip)]
+    instance_id: Guid,
     #[inspect(mut)]
     backing: Box<dyn backing::VmbfsIo>,
 }
 
 impl VmbfsDevice {
-    /// Creates a new vmbfs device, with the files provided by `backing`.
-    pub fn new(backing: Box<dyn backing::VmbfsIo>) -> Self {
-        Self { backing }
+    /// Creates a new vmbfs device offering the given VMBus channel `instance_id`
+    /// (the `IMC_INSTANCE` or `BOOT_INSTANCE` GUID), with the files provided by
+    /// `backing`.
+    pub fn new(instance_id: Guid, backing: Box<dyn backing::VmbfsIo>) -> Self {
+        Self {
+            instance_id,
+            backing,
+        }
     }
 }
 
@@ -58,9 +67,7 @@ impl SimpleVmbusDevice for VmbfsDevice {
         OfferParams {
             interface_name: "vmbfs".to_owned(),
             channel_type: vmbus_channel::bus::ChannelType::Device { pipe_packets: true },
-            // For now, always offer the IMC instance. To support
-            // boot-over-vmbfs, change this to BOOT_INSTANCE.
-            instance_id: protocol::IMC_INSTANCE,
+            instance_id: self.instance_id,
             interface_id: protocol::INTERFACE_TYPE,
             ..OfferParams::default()
         }
