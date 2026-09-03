@@ -447,7 +447,19 @@ impl<M: RingMem> PipeReader<'_, M> {
                             }
                             (off as usize, (len - off) as usize)
                         }
-                        n => return Err(TryReadError::Pipe(Error::InvalidPipePacketType(n))),
+                        n => {
+                            // A pipe packet type the vmbus pipe layer does not
+                            // handle. In particular SETUP_GPA_DIRECT (3) is used
+                            // for vSMB DirectMap/RDMA transfers, which are not
+                            // yet implemented; surface it (rate-limited, guest
+                            // triggerable) instead of silently failing.
+                            tracelimit::warn_ratelimited!(
+                                packet_type = n,
+                                header_len = header.len,
+                                "unhandled vmbus pipe packet type"
+                            );
+                            return Err(TryReadError::Pipe(Error::InvalidPipePacketType(n)));
+                        }
                     };
                     reader.skip(off)?;
                     let read = cmp::min(len, buf.len() - total_read);

@@ -10136,6 +10136,7 @@ dependencies = [
  "inspect_counters",
  "pal_async",
  "thiserror 2.0.16",
+ "tracelimit",
  "vmbus_channel",
  "vmbus_ring",
  "zerocopy",
