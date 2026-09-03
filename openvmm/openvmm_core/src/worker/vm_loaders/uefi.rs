@@ -42,6 +42,9 @@ pub struct UefiLoadSettings {
     pub serial: bool,
     pub uefi_console_mode: Option<UefiConsoleMode>,
     pub default_boot_always_attempt: bool,
+    /// Whether to set the firmware's `is_vmbfs_boot` flag so it boots the guest
+    /// over a vmbfs BOOT-instance device.
+    pub vmbfs_boot: bool,
     pub bios_guid: Guid,
     /// Whether VMBus is present in this VM. When `false`, the firmware's
     /// `vmbus_disabled` flag is set; the `MmioRanges` blob is still provided
@@ -135,6 +138,7 @@ pub fn load_uefi(params: &LoadUefiParams<'_>) -> Result<Vec<Register>, Error> {
             },
         )
         .with_default_boot_always_attempt(settings.default_boot_always_attempt)
+        .with_is_vmbfs_boot(settings.vmbfs_boot)
         .with_vmbus_disabled(!settings.vmbus)
         .with_pci_resources_pre_assigned(true)
         .with_force_dma_bounce_enabled(settings.force_dma_bounce);

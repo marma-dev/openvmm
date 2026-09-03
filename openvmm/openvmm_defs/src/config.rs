@@ -139,6 +139,10 @@ pub enum LoadMode {
         enable_vpci_boot: bool,
         uefi_console_mode: Option<UefiConsoleMode>,
         default_boot_always_attempt: bool,
+        /// Whether the firmware should boot the guest over vmbfs (the OpenVMM
+        /// equivalent of HCS `Uefi.BootThis = { DeviceType: VmbFs }`). Requires
+        /// a vmbfs BOOT-instance device serving the boot files.
+        is_vmbfs_boot: bool,
         bios_guid: Guid,
         enable_vmbus: bool,
         force_dma_bounce: bool,

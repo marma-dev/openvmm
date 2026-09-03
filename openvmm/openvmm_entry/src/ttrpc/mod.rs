@@ -804,6 +804,7 @@ impl VmService {
                         enable_battery: false,
                         enable_vpci_boot: false,
                         default_boot_always_attempt: false,
+                        is_vmbfs_boot: false,
                         force_dma_bounce: false,
                         enable_hv: true,
                     },

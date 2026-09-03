@@ -1313,6 +1313,8 @@ async fn vm_config_from_command_line(
                 UefiConsoleModeCli::None => UefiConsoleMode::None,
             }),
             default_boot_always_attempt: opt.default_boot_always_attempt,
+            // Wired to the `--vmbfs-boot` CLI option in a follow-up change.
+            is_vmbfs_boot: false,
             bios_guid,
             enable_vmbus: !opt.no_vmbus,
             force_dma_bounce: opt.uefi_force_dma_bounce,
