@@ -6,6 +6,7 @@
 use anyhow::Context;
 use mesh::payload::Protobuf;
 use mesh::payload::Timestamp;
+use mesh::payload::message::ProtobufMessage;
 use std::path::Path;
 
 /// Current manifest format version. Bump when making incompatible changes.
@@ -36,6 +37,38 @@ pub struct SnapshotManifest {
     /// Architecture string ("x86_64" or "aarch64").
     #[mesh(7)]
     pub architecture: String,
+}
+
+/// Adapter between the VM's aggregate saved state and the bytes stored in
+/// `state.bin`.
+///
+/// The VM worker returns all device and processor state as one opaque
+/// [`ProtobufMessage`]. This type owns the single encoding of that message, so
+/// the Save and Restore paths cannot drift, and is the seam where a
+/// per-unit state sink/source replaces the aggregate path later. The bytes are
+/// identical to what `state.bin` has always contained.
+pub struct AggregateState(Vec<u8>);
+
+impl AggregateState {
+    /// Encodes the aggregate state returned by the VM worker.
+    pub fn from_message(state: ProtobufMessage) -> Self {
+        Self(mesh::payload::encode(state))
+    }
+
+    /// Wraps the bytes read from `state.bin`.
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+
+    /// The bytes to store in `state.bin`.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// Decodes the aggregate state for the VM worker.
+    pub fn into_message(self) -> anyhow::Result<ProtobufMessage> {
+        mesh::payload::decode(&self.0).context("failed to decode saved state from snapshot")
+    }
 }
 
 /// Write a snapshot to the given directory.
@@ -249,6 +282,19 @@ mod tests {
 
         // The file content should be unchanged.
         assert_eq!(std::fs::read(&mem_path).unwrap(), b"SAMEFILE");
+    }
+
+    #[test]
+    fn aggregate_state_roundtrip_matches_legacy_encoding() {
+        let message = ProtobufMessage::new(test_manifest());
+        let legacy = mesh::payload::encode(message.clone());
+        let state = AggregateState::from_message(message);
+        assert_eq!(state.as_bytes(), legacy);
+
+        let decoded = AggregateState::from_bytes(legacy.clone())
+            .into_message()
+            .unwrap();
+        assert_eq!(mesh::payload::encode(decoded), legacy);
     }
 
     #[test]

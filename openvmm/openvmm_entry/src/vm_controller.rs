@@ -478,8 +478,8 @@ impl VmController {
             .await
             .context("failed to save state")?;
 
-        // Serialize the ProtobufMessage to bytes for writing to disk.
-        let saved_state_bytes = mesh::payload::encode(saved_state_msg);
+        // Serialize the aggregate state for state.bin.
+        let saved_state = openvmm_helpers::snapshot::AggregateState::from_message(saved_state_msg);
 
         // Fsync the memory backing file.
         let memory_file = fs_err::File::open(memory_file_path)?;
@@ -502,7 +502,7 @@ impl VmController {
         openvmm_helpers::snapshot::write_snapshot(
             dir,
             &manifest,
-            &saved_state_bytes,
+            saved_state.as_bytes(),
             memory_file_path,
         )?;
 

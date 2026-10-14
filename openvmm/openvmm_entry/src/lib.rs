@@ -2705,11 +2705,8 @@ fn prepare_snapshot_restore(
     let shared_memory_fd =
         openvmm_helpers::shared_memory::file_to_shared_memory_fd(memory_file.into())?;
 
-    // Reconstruct ProtobufMessage from the saved state bytes.
-    // The save side wrote mesh::payload::encode(ProtobufMessage), so we decode
-    // back to ProtobufMessage.
-    let state_msg: mesh::payload::message::ProtobufMessage = mesh::payload::decode(&state_bytes)
-        .context("failed to decode saved state from snapshot")?;
+    let state_msg =
+        openvmm_helpers::snapshot::AggregateState::from_bytes(state_bytes).into_message()?;
 
     Ok((shared_memory_fd, state_msg))
 }
