@@ -28,6 +28,10 @@ pub(crate) enum VmOperation {
     Topology,
     /// Teardown of the VM. Exclusive.
     Teardown,
+    /// Save of the VM to a snapshot. Exclusive.
+    Save,
+    /// Restore of the VM from a snapshot. Exclusive.
+    Restore,
 }
 
 impl VmOperation {
@@ -36,6 +40,8 @@ impl VmOperation {
             VmOperation::Lifecycle => "pause/resume",
             VmOperation::Topology => "device or resource modification",
             VmOperation::Teardown => "teardown",
+            VmOperation::Save => "save",
+            VmOperation::Restore => "restore",
         }
     }
 
@@ -133,6 +139,8 @@ mod tests {
             VmOperation::Lifecycle,
             VmOperation::Topology,
             VmOperation::Teardown,
+            VmOperation::Save,
+            VmOperation::Restore,
         ] {
             let status = grpc_error(gate.try_acquire(op).err().unwrap());
             assert_eq!(status.code, i32::from(Code::Aborted));
@@ -151,6 +159,22 @@ mod tests {
         assert!(gate.try_acquire(VmOperation::Teardown).is_err());
         drop(b);
         assert!(gate.try_acquire(VmOperation::Teardown).is_ok());
+    }
+
+    #[test]
+    fn save_and_restore_are_exclusive() {
+        for held in [VmOperation::Save, VmOperation::Restore] {
+            let gate = VmOperationGate::default();
+            let guard = gate.try_acquire(held).unwrap();
+            assert!(gate.try_acquire(VmOperation::Topology).is_err());
+            assert!(gate.try_acquire(VmOperation::Lifecycle).is_err());
+            drop(guard);
+            assert!(gate.try_acquire(VmOperation::Topology).is_ok());
+        }
+        let gate = VmOperationGate::default();
+        let _topology = gate.try_acquire(VmOperation::Topology).unwrap();
+        assert!(gate.try_acquire(VmOperation::Save).is_err());
+        assert!(gate.try_acquire(VmOperation::Restore).is_err());
     }
 
     #[test]
