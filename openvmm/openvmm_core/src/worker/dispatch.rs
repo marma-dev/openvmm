@@ -4200,6 +4200,12 @@ impl LoadedVm {
             }
         }
 
+        // Quiesce the VM before tearing it down. Stopping the state units lets
+        // each device drain in-flight work it cannot abandon safely (for
+        // example, virtio-blk's io_uring requests, whose drop aborts the
+        // process). This is a no-op if the VM is already paused.
+        self.pause().await;
+
         while let Some(entry) = self.inner.dynamic_vpci_devices.pop() {
             entry.device.remove().await;
         }

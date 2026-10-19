@@ -134,6 +134,13 @@ impl ArcMutexChipsetDeviceUnit {
                 }
             }
         }
+        // The unit was removed. Never return a started device: dropping it
+        // would abandon work it may not be able to abandon safely (for
+        // example, virtio-blk's in-flight io_uring requests, whose drop aborts
+        // the process). Stopping it lets it quiesce first.
+        if self.running {
+            self.stop().await;
+        }
         self
     }
 }
@@ -180,5 +187,109 @@ impl StateUnit for ArcMutexChipsetDeviceUnit {
     async fn restore(&mut self, state: SavedStateBlob) -> Result<(), RestoreError> {
         // TODO: make async
         self.device.clone().close().restore(state)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ArcMutexChipsetDeviceUnit;
+    use chipset_device::ChipsetDevice;
+    use closeable_mutex::CloseableMutex;
+    use inspect::InspectMut;
+    use mesh::rpc::Rpc;
+    use mesh::rpc::RpcSend;
+    use pal_async::DefaultDriver;
+    use pal_async::async_test;
+    use state_unit::StateRequest;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+    use test_with_tracing::test;
+    use vmcore::device_state::ChangeDeviceState;
+    use vmcore::save_restore::RestoreError;
+    use vmcore::save_restore::SaveError;
+    use vmcore::save_restore::SaveRestore;
+    use vmcore::save_restore::SavedStateNotSupported;
+
+    #[derive(Default)]
+    struct TestDevice {
+        running: Arc<AtomicBool>,
+        stops: Arc<AtomicUsize>,
+    }
+
+    impl ChangeDeviceState for TestDevice {
+        fn start(&mut self) {
+            self.running.store(true, Ordering::SeqCst);
+        }
+
+        async fn stop(&mut self) {
+            self.running.store(false, Ordering::SeqCst);
+            self.stops.fetch_add(1, Ordering::SeqCst);
+        }
+
+        async fn reset(&mut self) {}
+    }
+
+    impl ChipsetDevice for TestDevice {}
+
+    impl SaveRestore for TestDevice {
+        type SavedState = SavedStateNotSupported;
+
+        fn save(&mut self) -> Result<Self::SavedState, SaveError> {
+            Err(SaveError::NotSupported)
+        }
+
+        fn restore(&mut self, state: Self::SavedState) -> Result<(), RestoreError> {
+            match state {}
+        }
+    }
+
+    impl InspectMut for TestDevice {
+        fn inspect_mut(&mut self, req: inspect::Request<'_>) {
+            req.respond();
+        }
+    }
+
+    /// Runs a unit for `device`, applies `requests` in order, then closes the
+    /// request channel, which is how unit removal ends the unit.
+    async fn run_then_remove(device: TestDevice, requests: &[fn(Rpc<(), ()>) -> StateRequest]) {
+        let unit = ArcMutexChipsetDeviceUnit::new(Arc::new(CloseableMutex::new(device)), true);
+        let (send, recv) = mesh::channel();
+        let control = async {
+            for &request in requests {
+                send.call(request, ()).await.unwrap();
+            }
+            drop(send);
+        };
+        futures::join!(unit.run(recv), control);
+    }
+
+    #[async_test]
+    async fn removing_a_running_unit_stops_the_device(_driver: DefaultDriver) {
+        let device = TestDevice::default();
+        let (running, stops) = (device.running.clone(), device.stops.clone());
+        run_then_remove(device, &[StateRequest::Start]).await;
+        assert!(
+            !running.load(Ordering::SeqCst),
+            "removed device left running"
+        );
+        assert_eq!(stops.load(Ordering::SeqCst), 1);
+    }
+
+    #[async_test]
+    async fn removing_a_stopped_unit_does_not_stop_again(_driver: DefaultDriver) {
+        let device = TestDevice::default();
+        let stops = device.stops.clone();
+        run_then_remove(device, &[StateRequest::Start, StateRequest::Stop]).await;
+        assert_eq!(stops.load(Ordering::SeqCst), 1);
+    }
+
+    #[async_test]
+    async fn removing_a_never_started_unit_does_not_stop(_driver: DefaultDriver) {
+        let device = TestDevice::default();
+        let stops = device.stops.clone();
+        run_then_remove(device, &[]).await;
+        assert_eq!(stops.load(Ordering::SeqCst), 0);
     }
 }
